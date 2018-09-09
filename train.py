@@ -168,7 +168,8 @@ def train(x_train, y_train, vocab_processor, x_dev, y_dev):
                 _, step, summaries, loss, accuracy = sess.run(
                     [train_op, global_step, train_summary_op, cnn.loss, cnn.accuracy],
                     feed_dict)
-                # sess.run(cnn.output_W.assign(tf.clip_by_norm(cnn.output_W, 1.0)))  # L2 norm constraint (too slow)
+                # L2 norm constraint (too slow) https://github.com/dennybritz/cnn-text-classification-tf/issues/88
+                # sess.run(cnn.output_W.assign(tf.clip_by_norm(cnn.output_W, 1.0)))
                 time_str = datetime.datetime.now().isoformat()
                 print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
                 train_summary_writer.add_summary(summaries, step)
