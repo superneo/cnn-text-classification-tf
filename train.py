@@ -22,7 +22,8 @@ tf.flags.DEFINE_integer("embedding_dim", 128, "Dimensionality of character embed
 tf.flags.DEFINE_string("filter_sizes", "3,4,5", "Comma-separated filter sizes (default: '3,4,5')")
 tf.flags.DEFINE_integer("num_filters", 128, "Number of filters per filter size (default: 128)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
-tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
+tf.flags.DEFINE_float("l2_reg_lambda", 0.03, "L2 regularization lambda (default: 0.0)")
+tf.flags.DEFINE_float("learning_rate", 1e-3, "Learning rate (default: 1e-3)")
 
 # Training parameters
 tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
@@ -41,6 +42,21 @@ FLAGS = tf.flags.FLAGS
 #     print("{}={}".format(attr.upper(), value))
 # print("")
 
+def extract_dict(vocab_proc):
+    # reference: https://stackoverflow.com/questions/40661684/tensorflow-vocabularyprocessor
+    # Extract word:id mapping from the object
+    vocab_dict = vocab_proc.vocabulary_._mapping
+    # Sort the vocabulary dictionary on the basis of values(id)
+    sorted_vocab = sorted(vocab_dict.items(), key = lambda x : x[1])
+    vocabulary = list(list(zip(*sorted_vocab))[0])
+    print("[extract_dict] length of vocabulary: " + str(len(vocabulary)))
+    outf = open("./extracted_vocab.txt", "wt")
+    for token in vocabulary:
+        outf.write(token.strip() + "\n")
+    outf.flush()
+    outf.close()
+    print("[extract_dict] vocabulary extracted into a text file.")
+
 def preprocess():
     # Data Preparation
     # ==================================================
@@ -53,6 +69,7 @@ def preprocess():
     max_document_length = max([len(x.split(" ")) for x in x_text])
     vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
     x = np.array(list(vocab_processor.fit_transform(x_text)))
+    extract_dict(vocab_processor)
 
     # Randomly shuffle data
     np.random.seed(10)
@@ -93,7 +110,7 @@ def train(x_train, y_train, vocab_processor, x_dev, y_dev):
 
             # Define Training procedure
             global_step = tf.Variable(0, name="global_step", trainable=False)
-            optimizer = tf.train.AdamOptimizer(1e-3)
+            optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate)  # 1e-3
             grads_and_vars = optimizer.compute_gradients(cnn.loss)
             train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
 
@@ -151,6 +168,7 @@ def train(x_train, y_train, vocab_processor, x_dev, y_dev):
                 _, step, summaries, loss, accuracy = sess.run(
                     [train_op, global_step, train_summary_op, cnn.loss, cnn.accuracy],
                     feed_dict)
+                # sess.run(cnn.output_W.assign(tf.clip_by_norm(cnn.output_W, 1.0)))  # L2 norm constraint (too slow)
                 time_str = datetime.datetime.now().isoformat()
                 print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
                 train_summary_writer.add_summary(summaries, step)
@@ -171,19 +189,26 @@ def train(x_train, y_train, vocab_processor, x_dev, y_dev):
                 print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
                 if writer:
                     writer.add_summary(summaries, step)
+                return loss, accuracy
 
             # Generate batches
             batches = data_helpers.batch_iter(
                 list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
             # Training loop. For each batch...
+            best_metric_perf = 0.0  # dev_accuracy
+            cur_metric_perf = 0.0
             for batch in batches:
                 x_batch, y_batch = zip(*batch)
                 train_step(x_batch, y_batch)
                 current_step = tf.train.global_step(sess, global_step)
                 if current_step % FLAGS.evaluate_every == 0:
                     print("\nEvaluation:")
-                    dev_step(x_dev, y_dev, writer=dev_summary_writer)
+                    _, cur_metric_perf = dev_step(x_dev, y_dev, writer=dev_summary_writer)
                     print("")
+                if cur_metric_perf > best_metric_perf:
+                    best_metric_perf = cur_metric_perf
+                else:
+                    continue
                 if current_step % FLAGS.checkpoint_every == 0:
                     path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                     print("Saved model checkpoint to {}\n".format(path))

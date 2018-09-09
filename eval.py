@@ -6,7 +6,7 @@ import os
 import time
 import datetime
 import data_helpers
-from text_cnn import TextCNN
+# from text_cnn import TextCNN
 from tensorflow.contrib import learn
 import csv
 
@@ -19,8 +19,8 @@ tf.flags.DEFINE_string("negative_data_file", "./data/rt-polaritydata/rt-polarity
 
 # Eval Parameters
 tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
-tf.flags.DEFINE_string("checkpoint_dir", "", "Checkpoint directory from training run")
-tf.flags.DEFINE_boolean("eval_train", False, "Evaluate on all training data")
+tf.flags.DEFINE_string("checkpoint_dir", "/YOUR/PATH/TO/CHECKPOINTS", "Checkpoint directory from training run")
+tf.flags.DEFINE_boolean("eval_train", True, "Evaluate on all training data")
 
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
@@ -28,11 +28,11 @@ tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on 
 
 
 FLAGS = tf.flags.FLAGS
-FLAGS._parse_flags()
-print("\nParameters:")
-for attr, value in sorted(FLAGS.__flags.items()):
-    print("{}={}".format(attr.upper(), value))
-print("")
+# FLAGS._parse_flags()
+# print("\nParameters:")
+# for attr, value in sorted(FLAGS.__flags.items()):
+#     print("{}={}".format(attr.upper(), value))
+# print("")
 
 # CHANGE THIS: Load data. Load your own data here
 if FLAGS.eval_train:
