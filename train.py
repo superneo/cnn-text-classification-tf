@@ -10,6 +10,8 @@ import data_helpers_nsmc
 from text_cnn import TextCNN
 from tensorflow.contrib import learn
 
+import sys
+
 # Parameters
 # ==================================================
 
@@ -19,8 +21,10 @@ tf.flags.DEFINE_string("positive_data_file", "./data/rt-polaritydata/rt-polarity
 tf.flags.DEFINE_string("negative_data_file", "./data/rt-polaritydata/rt-polarity.neg", "Data source for the negative data.")
 
 # Data loading params for nsmc only
-tf.flags.DEFINE_string("train_data_file", "./data/nsmc/nsmc_train.txt", "Data source for the training data.")
-tf.flags.DEFINE_string("validatd_data_file", "./data/nsmc/nsmc_validate.txt", "Data source for the validation data.")
+tf.flags.DEFINE_string("pos_train_data_file", "./data/nsmc/toy_nsmc_pos_train.txt", "Data source for the positive training data.")
+tf.flags.DEFINE_string("pos_validate_data_file", "./data/nsmc/toy_nsmc_pos_validate.txt", "Data source for the positive validation data.")
+tf.flags.DEFINE_string("neg_train_data_file", "./data/nsmc/toy_nsmc_neg_train.txt", "Data source for the negative training data.")
+tf.flags.DEFINE_string("neg_validate_data_file", "./data/nsmc/toy_nsmc_neg_validate.txt", "Data source for the negative validation data.")
 
 # Model Hyperparameters
 tf.flags.DEFINE_integer("embedding_dim", 128, "Dimensionality of character embedding (default: 128)")
@@ -94,43 +98,42 @@ def preprocess():
     print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
     return x_train, y_train, vocab_processor, x_dev, y_dev
 
-
+# x_train, y_train, vocab_processor, x_dev, y_dev = preprocess_nsmc_data()
 def preprocess_nsmc_data():
     # Data Preparation for nsmc
     # ==================================================
 
     # Load data
     print("Loading nsmc data...")
-    pos_train_examples, neg_train_examples, pos_val_examples, neg_val_examples =\
-        data_helpers_nsmc.load_nsmc_data(FLAGS.train_data_file, FLAGS.validatd_data_file, True)
-    x_text = pos_train_examples + neg_train_examples + pos_val_examples + neg_val_examples
-    y = [[0, 1] for _ in pos_train_examples] + [[1, 0] for _ in neg_train_examples] +\
-        [[0, 1] for _ in pos_val_examples] + [[1, 0] for _ in neg_val_examples]
-
-    train_size = len(pos_train_examples) * 2
-    val_size = len(pos_val_examples) * 2
+    pos_train_examples, pos_val_examples, neg_train_examples, neg_val_examples, max_len =\
+        data_helpers_nsmc.load_nsmc_train_val_data(
+            FLAGS.pos_train_data_file, FLAGS.pos_validate_data_file,
+            FLAGS.neg_train_data_file, FLAGS.neg_validate_data_file)
 
     # Build vocabulary
     # max_document_length = max([len(x.split(" ")) for x in x_text])
-    max_document_length = max([len(x) for x in x_text])
-    print("[neo] max_document_length: " + str(max_document_length))
-    vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
-    x = np.array(list(vocab_processor.fit_transform(x_text)))
-    y = np.array(y)
+    print("[neo] maximum corpus string length: " + str(max_len))
+    vocab_processor = learn.preprocessing.VocabularyProcessor(max_len)
+    x_examples = pos_train_examples + neg_train_examples + pos_val_examples + neg_val_examples
+    x = np.array(list(vocab_processor.fit_transform(x_examples)))
+    y = np.array([[0, 1] for _ in range(len(pos_train_examples))] +\
+        [[1, 0] for _ in range(len(neg_train_examples))] +\
+        [[0, 1] for _ in range(len(pos_val_examples))] +\
+        [[1, 0] for _ in range(len(neg_val_examples))])
     extract_dict(vocab_processor)
 
     # Randomly shuffle training data only
     np.random.seed(10)
+    train_size = len(pos_train_examples) + len(neg_train_examples)
+    val_size = len(pos_val_examples) + len(neg_val_examples)
     shuffle_indices = np.random.permutation(np.arange(train_size))
     x[:train_size] = x[shuffle_indices]
     y[:train_size] = y[shuffle_indices]
-    x = list(x)
-    y = list(y)
 
     print("Vocabulary Size: {:d}".format(len(vocab_processor.vocabulary_)))
     print("Train/Dev split: {:d}/{:d}".format(train_size, val_size))
 
-    del pos_train_examples, neg_train_examples, pos_val_examples, neg_val_examples, x_text
+    del pos_train_examples, pos_val_examples, neg_train_examples, neg_val_examples, x_examples, shuffle_indices
 
     return x[:train_size], y[:train_size], vocab_processor, x[train_size:], y[train_size:]
 
@@ -260,6 +263,7 @@ def train(x_train, y_train, vocab_processor, x_dev, y_dev):
                     path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                     print("Saved model checkpoint to {}\n".format(path))
 
+import sys
 def main(argv=None):
     x_train, y_train, vocab_processor, x_dev, y_dev = preprocess_nsmc_data()
     sys.exit(1)

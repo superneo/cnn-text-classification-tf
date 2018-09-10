@@ -3,6 +3,9 @@ import re
 import sys
 
 
+EOS = "EOS"
+SPACE = "SPACE"
+
 def clean_str(string):
     """
     Tokenization/string cleaning for all datasets except for SST.
@@ -24,49 +27,110 @@ def clean_str(string):
     return string.strip().lower()
 
 
-def load_nsmc_data(train_data_file, validate_data_file, for_test_model):
+def load_nsmc_train_val_data(pos_train_data_file, pos_validate_data_file,
+    neg_train_data_file, neg_validate_data_file):
     # Load data from files
     positive_train_examples = []
-    negative_train_examples = []
     positive_validate_examples = []
+    negative_train_examples = []
     negative_validate_examples = []
 
-    train_inf = open(train_data_file, "r", encoding='utf-8')
+    max_line_len = 0
+
+    pos_train_inf = open(pos_train_data_file, "r", encoding='utf-8')
+    line_cnt = 0
     while True:
-        line = train_inf.readline()
+        line_cnt += 1
+        line = pos_train_inf.readline()
         if not line:
             break
         tokens = line.strip().split('\t')
-        if len(tokens) != 2:
-            print("[ERROR] invalid corpus line found!!!")
+        if len(tokens) != 2 or tokens[0] != '1' or len(tokens[1].strip()) == 0:
+            print("[ERROR] invalid pos train corpus line found!!! (" + str(line_cnt) + ")")
             print("\tline: <" + line + ">")
             sys.exit(1)
-        text = tokens[1]
-        if for_test_model:
-            text += (" " + re.sub(r'\s+', '', tokens[1]))
-        if tokens[0] == 0:  # negative
-            negative_train_examples.append(text)
-        else:
-            positive_train_examples.append(text)
-    train_inf.close()
+        chars = list(tokens[1]) + [EOS] + list(re.sub(r'\s+', '', tokens[1]))
+        for i, c in enumerate(chars):
+            if c == ' ':
+                chars[i] = SPACE
+        text = ' '.join(chars)
+        positive_train_examples.append(text)
+        if len(chars) > max_line_len:
+            max_line_len = len(chars)
+            print("[load_nsmc_train_val_data] max len text: " + str(max_line_len) + " <" + text + ">")
+    pos_train_inf.close()
 
-    validate_inf = open(validate_data_file, "r", encoding='utf-8')
+    pos_validate_inf = open(pos_validate_data_file, "r", encoding='utf-8')
+    line_cnt = 0
     while True:
-        line = validate_inf.readline()
+        line_cnt += 1
+        line = pos_validate_inf.readline()
         if not line:
             break
         tokens = line.strip().split('\t')
-        text = tokens[1]
-        if for_test_model:
-            text += ("_$_" + re.sub(r'\s+', '', tokens[1]))
-        if toknes[0] == 0:  # negative
-            negative_validate_examples.append(text)
-        else:
-            negative_validate_examples.append(text)
-    validate_inf.close()
+        if len(tokens) != 2 or tokens[0] != '1' or len(tokens[1].strip()) == 0:
+            print("[ERROR] invalid pos validate corpus line found!!! (" + str(line_cnt) + ")")
+            print("\tline: <" + line + ">")
+            sys.exit(1)
+        chars = list(tokens[1]) + [EOS] + list(re.sub(r'\s+', '', tokens[1]))
+        for i, c in enumerate(chars):
+            if c == ' ':
+                chars[i] = SPACE
+        text = ' '.join(chars)
+        positive_validate_examples.append(text)
+        if len(chars) > max_line_len:
+            max_line_len = len(chars)
+            print("[load_nsmc_train_val_data] max len text: " + str(max_line_len) + " <" + text + ">")
+    pos_validate_inf.close()
 
-    return positive_train_examples, negative_train_examples,\
-        positive_validate_examples, negative_validate_examples
+    neg_train_inf = open(neg_train_data_file, "r", encoding='utf-8')
+    line_cnt = 0
+    while True:
+        line_cnt += 1
+        line = neg_train_inf.readline()
+        if not line:
+            break
+        tokens = line.strip().split('\t')
+        if len(tokens) != 2 or tokens[0] != '0' or len(tokens[1].strip()) == 0:
+            print("[ERROR] invalid neg train corpus line found!!! (" + str(line_cnt) + ")")
+            print("\tline: <" + line + ">")
+            sys.exit(1)
+        chars = list(tokens[1]) + [EOS] + list(re.sub(r'\s+', '', tokens[1]))
+        for i, c in enumerate(chars):
+            if c == ' ':
+                chars[i] = SPACE
+        text = ' '.join(chars)
+        negative_train_examples.append(text)
+        if len(chars) > max_line_len:
+            max_line_len = len(chars)
+            print("[load_nsmc_train_val_data] max len text: " + str(max_line_len) + " <" + text + ">")
+    neg_train_inf.close()
+
+    neg_validate_inf = open(neg_validate_data_file, "r", encoding='utf-8')
+    line_cnt = 0
+    while True:
+        line_cnt += 1
+        line = neg_validate_inf.readline()
+        if not line:
+            break
+        tokens = line.strip().split('\t')
+        if len(tokens) != 2 or tokens[0] != '0' or len(tokens[1].strip()) == 0:
+            print("[ERROR] invalid neg validate corpus line found!!! (" + str(line_cnt) + ")")
+            print("\tline: <" + line + ">")
+            sys.exit(1)
+        chars = list(tokens[1]) + [EOS] + list(re.sub(r'\s+', '', tokens[1]))
+        for i, c in enumerate(chars):
+            if c == ' ':
+                chars[i] = SPACE
+        text = ' '.join(chars)
+        negative_validate_examples.append(text)
+        if len(chars) > max_line_len:
+            max_line_len = len(chars)
+            print("[load_nsmc_train_val_data] max len text: " + str(max_line_len) + " <" + text + ">")
+    neg_validate_inf.close()
+
+    return positive_train_examples, positive_validate_examples,\
+        negative_train_examples, negative_validate_examples, max_line_len
 
 
 def batch_iter(data, batch_size, num_epochs, shuffle=True):
