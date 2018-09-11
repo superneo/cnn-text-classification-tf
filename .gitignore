@@ -67,3 +67,7 @@ target/
 ### IPythonNotebook ###
 # Temporary data
 .ipynb_checkpoints/
+
+
+# MACOS
+.DS_Store
