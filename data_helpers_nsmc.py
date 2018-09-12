@@ -28,7 +28,7 @@ def clean_str(string):
 
 
 def load_nsmc_train_val_data(pos_train_data_file, pos_validate_data_file,
-    neg_train_data_file, neg_validate_data_file):
+    neg_train_data_file, neg_validate_data_file, is_test_model):
     # Load data from files
     positive_train_examples = []
     positive_validate_examples = []
@@ -49,7 +49,10 @@ def load_nsmc_train_val_data(pos_train_data_file, pos_validate_data_file,
             print("[ERROR] invalid pos train corpus line found!!! (" + str(line_cnt) + ")")
             print("\tline: <" + line + ">")
             sys.exit(1)
-        chars = list(tokens[1]) + [EOS] + list(re.sub(r'\s+', '', tokens[1]))
+        if is_test_model:
+            chars = list(tokens[1]) + [EOS] + list(re.sub(r'\s+', '', tokens[1]))
+        else:
+            chars = list(tokens[1])
         for i, c in enumerate(chars):
             if c == ' ':
                 chars[i] = SPACE
@@ -72,7 +75,10 @@ def load_nsmc_train_val_data(pos_train_data_file, pos_validate_data_file,
             print("[ERROR] invalid pos validate corpus line found!!! (" + str(line_cnt) + ")")
             print("\tline: <" + line + ">")
             sys.exit(1)
-        chars = list(tokens[1]) + [EOS] + list(re.sub(r'\s+', '', tokens[1]))
+        if is_test_model:
+            chars = list(tokens[1]) + [EOS] + list(re.sub(r'\s+', '', tokens[1]))
+        else:
+            chars = list(tokens[1])
         for i, c in enumerate(chars):
             if c == ' ':
                 chars[i] = SPACE
@@ -95,7 +101,10 @@ def load_nsmc_train_val_data(pos_train_data_file, pos_validate_data_file,
             print("[ERROR] invalid neg train corpus line found!!! (" + str(line_cnt) + ")")
             print("\tline: <" + line + ">")
             sys.exit(1)
-        chars = list(tokens[1]) + [EOS] + list(re.sub(r'\s+', '', tokens[1]))
+        if is_test_model:
+            chars = list(tokens[1]) + [EOS] + list(re.sub(r'\s+', '', tokens[1]))
+        else:
+            chars = list(tokens[1])
         for i, c in enumerate(chars):
             if c == ' ':
                 chars[i] = SPACE
@@ -118,7 +127,10 @@ def load_nsmc_train_val_data(pos_train_data_file, pos_validate_data_file,
             print("[ERROR] invalid neg validate corpus line found!!! (" + str(line_cnt) + ")")
             print("\tline: <" + line + ">")
             sys.exit(1)
-        chars = list(tokens[1]) + [EOS] + list(re.sub(r'\s+', '', tokens[1]))
+        if is_test_model:
+            chars = list(tokens[1]) + [EOS] + list(re.sub(r'\s+', '', tokens[1]))
+        else:
+            chars = list(tokens[1])
         for i, c in enumerate(chars):
             if c == ' ':
                 chars[i] = SPACE
@@ -131,6 +143,66 @@ def load_nsmc_train_val_data(pos_train_data_file, pos_validate_data_file,
 
     return positive_train_examples, positive_validate_examples,\
         negative_train_examples, negative_validate_examples, max_line_len
+
+
+def load_nsmc_test_data_and_labels_test(positive_data_file, negative_data_file):
+    print("[load_nsmc_test_data_and_labels_test] invoked for test model")
+    # Load data from files
+    positive_examples = list(open(positive_data_file, "r", encoding='utf-8').readlines())
+    positive_examples = [s.strip().split('\t')[1] for s in positive_examples]
+    for i, line in enumerate(positive_examples):
+        syllable_list = list(line)
+        for j, c in enumerate(syllable_list):
+            if c == ' ':
+                syllable_list[j] = SPACE
+        positive_examples[i] = ' '.join(syllable_list + [EOS] + list(re.sub(r'\s+', '', line)))
+
+    negative_examples = list(open(negative_data_file, "r", encoding='utf-8').readlines())
+    negative_examples = [s.strip().split('\t')[1] for s in negative_examples]
+    for i, line in enumerate(negative_examples):
+        syllable_list = list(line)
+        for j, c in enumerate(syllable_list):
+            if c == ' ':
+                syllable_list[j] = SPACE
+        negative_examples[i] = ' '.join(syllable_list + [EOS] + list(re.sub(r'\s+', '', line)))
+
+    x_text = positive_examples + negative_examples
+
+    # Generate labels
+    positive_labels = [[0, 1] for _ in positive_examples]
+    negative_labels = [[1, 0] for _ in negative_examples]
+    y = np.concatenate([positive_labels, negative_labels], 0)
+    return [x_text, y]
+
+
+def load_nsmc_test_data_and_labels_baseline(positive_data_file, negative_data_file):
+    print("[load_nsmc_test_data_and_labels_baseline] invoked for baseline model")
+    # Load data from files
+    positive_examples = list(open(positive_data_file, "r", encoding='utf-8').readlines())
+    positive_examples = [s.strip().split('\t')[1] for s in positive_examples]
+    for i, line in enumerate(positive_examples):
+        syllable_list = list(line)
+        for j, c in enumerate(syllable_list):
+            if c == ' ':
+                syllable_list[j] = SPACE
+        positive_examples[i] = ' '.join(syllable_list)
+
+    negative_examples = list(open(negative_data_file, "r", encoding='utf-8').readlines())
+    negative_examples = [s.strip().split('\t')[1] for s in negative_examples]
+    for i, line in enumerate(negative_examples):
+        syllable_list = list(line)
+        for j, c in enumerate(syllable_list):
+            if c == ' ':
+                syllable_list[j] = SPACE
+        negative_examples[i] = ' '.join(syllable_list)
+
+    x_text = positive_examples + negative_examples
+
+    # Generate labels
+    positive_labels = [[0, 1] for _ in positive_examples]
+    negative_labels = [[1, 0] for _ in negative_examples]
+    y = np.concatenate([positive_labels, negative_labels], 0)
+    return [x_text, y]
 
 
 def batch_iter(data, batch_size, num_epochs, shuffle=True):

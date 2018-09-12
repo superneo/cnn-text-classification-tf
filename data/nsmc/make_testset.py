@@ -8,9 +8,12 @@ import sys
 
 
 def make_test_string(original_string, threshold):
-    if not original_string or not threshold:
+    if not original_string or threshold < 0 or threshold > 1:
         print("[ERROR] invalid input argument passed!!!")
         sys.exit(1)
+
+    if threshold == 0.0:
+        return original_string.strip()
 
     tokens = original_string.strip().split('\t')
     if len(tokens) != 2:
@@ -26,7 +29,7 @@ def make_test_string(original_string, threshold):
         else:
             # make threshold for non-spaces much smaller
             # as korean sentence usually has more non-spaces
-            if p < threshold / 2.0:
+            if p < threshold:# / 2.0:
                 text += (letter + ' ')
                 continue
         text += letter
@@ -36,8 +39,9 @@ def make_test_string(original_string, threshold):
 
 
 def make_test_corpus_file(input_file, output_file, ratio):
-    if not input_file or not output_file or not ratio:
+    if not input_file or not output_file or ratio < 0 or ratio > 1:
         print("[ERROR] invalid input argument passed!!!")
+        sys.exit(1)
 
     inf = open(input_file, "rt")
     outf = open(output_file, "wt")
@@ -57,7 +61,7 @@ def make_test_corpus_file(input_file, output_file, ratio):
 if __name__ == '__main__':
     print("[" + __file__ + "] main invoked.")
 
-    random.seed(925)
+    random.seed(1977)
 
     AP = argparse.ArgumentParser(description="args parser")
     AP.add_argument("-input_file", action="store", required=True,

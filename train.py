@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 
 import tensorflow as tf
 import numpy as np
@@ -21,17 +21,17 @@ tf.flags.DEFINE_string("positive_data_file", "./data/rt-polaritydata/rt-polarity
 tf.flags.DEFINE_string("negative_data_file", "./data/rt-polaritydata/rt-polarity.neg", "Data source for the negative data.")
 
 # Data loading params for nsmc only
-tf.flags.DEFINE_string("pos_train_data_file", "./data/nsmc/toy_nsmc_pos_train.txt", "Data source for the positive training data.")
-tf.flags.DEFINE_string("pos_validate_data_file", "./data/nsmc/toy_nsmc_pos_validate.txt", "Data source for the positive validation data.")
-tf.flags.DEFINE_string("neg_train_data_file", "./data/nsmc/toy_nsmc_neg_train.txt", "Data source for the negative training data.")
-tf.flags.DEFINE_string("neg_validate_data_file", "./data/nsmc/toy_nsmc_neg_validate.txt", "Data source for the negative validation data.")
+tf.flags.DEFINE_string("pos_train_data_file", "./data/nsmc/train/toy_nsmc_pos_train.txt", "Data source for the positive training data.")
+tf.flags.DEFINE_string("pos_validate_data_file", "./data/nsmc/validate/toy_nsmc_pos_validate.txt", "Data source for the positive validation data.")
+tf.flags.DEFINE_string("neg_train_data_file", "./data/nsmc/train/toy_nsmc_neg_train.txt", "Data source for the negative training data.")
+tf.flags.DEFINE_string("neg_validate_data_file", "./data/nsmc/validate/toy_nsmc_neg_validate.txt", "Data source for the negative validation data.")
 
 # Model Hyperparameters
 tf.flags.DEFINE_integer("embedding_dim", 128, "Dimensionality of character embedding (default: 128)")
 tf.flags.DEFINE_string("filter_sizes", "3,4,5", "Comma-separated filter sizes (default: '3,4,5')")
 tf.flags.DEFINE_integer("num_filters", 128, "Number of filters per filter size (default: 128)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
-tf.flags.DEFINE_float("l2_reg_lambda", 0.03, "L2 regularization lambda (default: 0.0)")
+tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
 tf.flags.DEFINE_float("learning_rate", 1e-3, "Learning rate (default: 1e-3)")
 
 # Training parameters
@@ -51,7 +51,10 @@ FLAGS = tf.flags.FLAGS
 #     print("{}={}".format(attr.upper(), value))
 # print("")
 
-def extract_dict(vocab_proc):
+def extract_dict(vocab_proc, dict_path):
+    if not vocab_proc or not dict_path:
+        print("[extract_dict] [ERROR] invalid argument passed!!!")
+        return
     # reference: https://stackoverflow.com/questions/40661684/tensorflow-vocabularyprocessor
     # Extract word:id mapping from the object
     vocab_dict = vocab_proc.vocabulary_._mapping
@@ -59,7 +62,7 @@ def extract_dict(vocab_proc):
     sorted_vocab = sorted(vocab_dict.items(), key = lambda x : x[1])
     vocabulary = list(list(zip(*sorted_vocab))[0])
     print("[extract_dict] length of vocabulary: " + str(len(vocabulary)))
-    outf = open("./extracted_vocab.txt", "wt")
+    outf = open(dict_path + "/extracted_vocab.txt", "wt")
     for token in vocabulary:
         outf.write(token.strip() + "\n")
     outf.flush()
@@ -78,7 +81,7 @@ def preprocess():
     max_document_length = max([len(x.split(" ")) for x in x_text])
     vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
     x = np.array(list(vocab_processor.fit_transform(x_text)))
-    extract_dict(vocab_processor)
+    # extract_dict(vocab_processor)
 
     # Randomly shuffle data
     np.random.seed(10)
@@ -99,7 +102,7 @@ def preprocess():
     return x_train, y_train, vocab_processor, x_dev, y_dev
 
 # x_train, y_train, vocab_processor, x_dev, y_dev = preprocess_nsmc_data()
-def preprocess_nsmc_data():
+def preprocess_nsmc_data(is_baseline):
     # Data Preparation for nsmc
     # ==================================================
 
@@ -108,7 +111,8 @@ def preprocess_nsmc_data():
     pos_train_examples, pos_val_examples, neg_train_examples, neg_val_examples, max_len =\
         data_helpers_nsmc.load_nsmc_train_val_data(
             FLAGS.pos_train_data_file, FLAGS.pos_validate_data_file,
-            FLAGS.neg_train_data_file, FLAGS.neg_validate_data_file)
+            FLAGS.neg_train_data_file, FLAGS.neg_validate_data_file,
+            not is_baseline)  # baseline or test model
 
     # Build vocabulary
     # max_document_length = max([len(x.split(" ")) for x in x_text])
@@ -120,7 +124,7 @@ def preprocess_nsmc_data():
         [[1, 0] for _ in range(len(neg_train_examples))] +\
         [[0, 1] for _ in range(len(pos_val_examples))] +\
         [[1, 0] for _ in range(len(neg_val_examples))])
-    extract_dict(vocab_processor)
+    # extract_dict(vocab_processor)
 
     # Randomly shuffle training data only
     np.random.seed(10)
@@ -138,7 +142,7 @@ def preprocess_nsmc_data():
     return x[:train_size], y[:train_size], vocab_processor, x[train_size:], y[train_size:]
 
 
-def train(x_train, y_train, vocab_processor, x_dev, y_dev):
+def train(x_train, y_train, vocab_processor, x_dev, y_dev, is_baseline, checkpoint_root):
     # Training
     # ==================================================
 
@@ -148,6 +152,7 @@ def train(x_train, y_train, vocab_processor, x_dev, y_dev):
           log_device_placement=FLAGS.log_device_placement)
         sess = tf.Session(config=session_conf)
         with sess.as_default():
+          with tf.device('/device:GPU:0'):
             cnn = TextCNN(
                 sequence_length=x_train.shape[1],
                 num_classes=y_train.shape[1],
@@ -159,6 +164,8 @@ def train(x_train, y_train, vocab_processor, x_dev, y_dev):
 
             # Define Training procedure
             global_step = tf.Variable(0, name="global_step", trainable=False)
+            # learning_rate = tf.train.exponential_decay(FLAGS.learning_rate, global_step,
+            #     1000, 0.96, staircase=True)
             optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate)  # 1e-3
             grads_and_vars = optimizer.compute_gradients(cnn.loss)
             train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
@@ -174,8 +181,8 @@ def train(x_train, y_train, vocab_processor, x_dev, y_dev):
             grad_summaries_merged = tf.summary.merge(grad_summaries)
 
             # Output directory for models and summaries
-            timestamp = str(int(time.time()))
-            out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs", timestamp))
+            # timestamp = str(int(time.time()))
+            out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs", checkpoint_root))#timestamp))
             print("Writing to {}\n".format(out_dir))
 
             # Summaries for loss and accuracy
@@ -201,6 +208,7 @@ def train(x_train, y_train, vocab_processor, x_dev, y_dev):
 
             # Write vocabulary
             vocab_processor.save(os.path.join(out_dir, "vocab"))
+            extract_dict(vocab_processor, out_dir)
 
             # Initialize all variables
             sess.run(tf.global_variables_initializer())
@@ -263,11 +271,14 @@ def train(x_train, y_train, vocab_processor, x_dev, y_dev):
                     path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                     print("Saved model checkpoint to {}\n".format(path))
 
-import sys
 def main(argv=None):
-    x_train, y_train, vocab_processor, x_dev, y_dev = preprocess_nsmc_data()
-    sys.exit(1)
-    train(x_train, y_train, vocab_processor, x_dev, y_dev)
+    if len(argv) != 3:
+        print("[usage] " + argv[0] + " <1(baseline)/0(test)> <checkpoint_root_dir_name>")
+        sys.exit(1)
+    is_baseline = bool(int(argv[1]))  # 1 for baseline, 0 for test
+    x_train, y_train, vocab_processor, x_dev, y_dev = preprocess_nsmc_data(is_baseline)
+    #sys.exit(1)
+    train(x_train, y_train, vocab_processor, x_dev, y_dev, is_baseline, argv[2])
 
 if __name__ == '__main__':
     tf.app.run()
