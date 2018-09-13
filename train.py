@@ -21,10 +21,10 @@ tf.flags.DEFINE_string("positive_data_file", "./data/rt-polaritydata/rt-polarity
 tf.flags.DEFINE_string("negative_data_file", "./data/rt-polaritydata/rt-polarity.neg", "Data source for the negative data.")
 
 # Data loading params for nsmc only
-tf.flags.DEFINE_string("pos_train_data_file", "./data/nsmc/train/toy_nsmc_pos_train.txt", "Data source for the positive training data.")
-tf.flags.DEFINE_string("pos_validate_data_file", "./data/nsmc/validate/toy_nsmc_pos_validate.txt", "Data source for the positive validation data.")
-tf.flags.DEFINE_string("neg_train_data_file", "./data/nsmc/train/toy_nsmc_neg_train.txt", "Data source for the negative training data.")
-tf.flags.DEFINE_string("neg_validate_data_file", "./data/nsmc/validate/toy_nsmc_neg_validate.txt", "Data source for the negative validation data.")
+tf.flags.DEFINE_string("pos_train_data_file", "./data/nsmc/train/nsmc_pos_train.txt", "Data source for the positive training data.")
+tf.flags.DEFINE_string("pos_validate_data_file", "./data/nsmc/validate/nsmc_pos_validate.txt", "Data source for the positive validation data.")
+tf.flags.DEFINE_string("neg_train_data_file", "./data/nsmc/train/nsmc_neg_train.txt", "Data source for the negative training data.")
+tf.flags.DEFINE_string("neg_validate_data_file", "./data/nsmc/validate/nsmc_neg_validate.txt", "Data source for the negative validation data.")
 
 # Model Hyperparameters
 tf.flags.DEFINE_integer("embedding_dim", 128, "Dimensionality of character embedding (default: 128)")

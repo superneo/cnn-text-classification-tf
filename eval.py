@@ -32,7 +32,7 @@ tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device 
 tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
 
 
-def main(is_baseline, checkpoint_dir, pos_test_file, neg_test_file, performance_file):
+def main(is_baseline, checkpoint_dir, pos_test_file, neg_test_file, prediction_file, performance_file):
     FLAGS = tf.flags.FLAGS
 
     # CHANGE THIS: Load data. Load your own data here
@@ -84,7 +84,7 @@ def main(is_baseline, checkpoint_dir, pos_test_file, neg_test_file, performance_
 
     # Save the evaluation to a csv
     predictions_human_readable = np.column_stack((np.array(x_raw), all_predictions))
-    out_path = os.path.join(checkpoint_dir, "..", "prediction.csv")
+    out_path = os.path.join(checkpoint_dir, "..", prediction_file)#"prediction.csv")
     print("Saving evaluation to {0}".format(out_path))
     with open(out_path, 'w') as f:
         csv.writer(f).writerows(predictions_human_readable)
@@ -109,9 +109,11 @@ if __name__ == "__main__":
                     help="data source for the positive test data")
     AP.add_argument("-neg_test_file", action="store", required=True,
                     help="data source for the negative test data")
+    AP.add_argument("-prediction_file", action="store", required=True,
+                    help="prediction file name")
     AP.add_argument("-performance_file", action="store", required=True,
                     help="performance file name")
     ARGS = AP.parse_args()
 
-    main(bool(ARGS.is_baseline), ARGS.checkpoint_dir,
-         ARGS.pos_test_file, ARGS.neg_test_file, ARGS.performance_file)
+    main(bool(int(ARGS.is_baseline)), ARGS.checkpoint_dir,
+         ARGS.pos_test_file, ARGS.neg_test_file, ARGS.prediction_file, ARGS.performance_file)
